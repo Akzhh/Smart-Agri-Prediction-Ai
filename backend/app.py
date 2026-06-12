@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pickle
@@ -8,9 +9,10 @@ from data_fetcher import get_location_metrics
 app = Flask(__name__)
 CORS(app)
 
-# Load the model and feature importance
-MODEL_PATH = 'models/crop_model.pkl'
-IMPORTANCE_PATH = 'models/feature_importance.pkl'
+# Load the model and feature importance (absolute path relative to app.py)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, 'models', 'crop_model.pkl')
+IMPORTANCE_PATH = os.path.join(BASE_DIR, 'models', 'feature_importance.pkl')
 
 model = None
 feature_importance = None
@@ -148,4 +150,6 @@ def iot_override():
 
 if __name__ == '__main__':
     load_model()
-    app.run(debug=True, port=5000)
+    # Bind to 0.0.0.0 and dynamic environment PORT for Render deployment
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)

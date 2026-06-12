@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+
+// Dynamic API Base URL with local fallback
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 import { 
   Sprout, 
   Droplets, 
@@ -190,7 +194,7 @@ const App = () => {
     simulateLiveLogs();
     
     try {
-      const response = await axios.post('http://localhost:5000/location-metrics', {
+      const response = await axios.post(`${API_BASE_URL}/location-metrics`, {
         latitude: lat,
         longitude: lon
       });
@@ -290,14 +294,14 @@ const App = () => {
     try {
       let response;
       if (isManualMode) {
-        response = await axios.post('http://localhost:5000/predict', formData);
+        response = await axios.post(`${API_BASE_URL}/predict`, formData);
       } else {
         const iot_overrides = {};
         Object.keys(overriddenFields).forEach(k => {
           iot_overrides[k] = formData[k];
         });
         
-        response = await axios.post('http://localhost:5000/auto-predict', {
+        response = await axios.post(`${API_BASE_URL}/auto-predict`, {
           latitude: coordinates.lat,
           longitude: coordinates.lon,
           iot_data: iot_overrides
