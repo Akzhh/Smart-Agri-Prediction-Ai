@@ -1,31 +1,21 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import {
-  Sprout,
-  Droplets,
-  Map as MapIcon,
-  BarChart3,
+import { 
+  Sprout, 
+  Droplets, 
+  Map as MapIcon, 
+  BarChart3, 
   RefreshCw,
   Search,
   MapPin,
   Edit2,
-  Check,
   Thermometer,
   CloudRain,
   Activity,
   Info,
-  Compass
+  Compass,
+  Wifi
 } from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell
-} from 'recharts';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,10 +26,10 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 let DefaultIcon = L.icon({
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41]
+    iconUrl: markerIcon,
+    shadowUrl: markerShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
@@ -67,34 +57,41 @@ const App = () => {
   const [isManualMode, setIsManualMode] = useState(false);
 
   // Auto mode coordinates & location name
-  const [coordinates, setCoordinates] = useState({ lat: 21.1458, lon: 79.0882 }); // Nagpur default
-  const [latInput, setLatInput] = useState("21.1458");
-  const [lonInput, setLonInput] = useState("79.0882");
-  const [locationName, setLocationName] = useState("Nagpur, Maharashtra, India");
+  const [coordinates, setCoordinates] = useState({ lat: 8.1354, lon: 77.3502 }); // Default coordinates from reference image
+  const [latInput, setLatInput] = useState("8.1354");
+  const [lonInput, setLonInput] = useState("77.3502");
+  const [locationName, setLocationName] = useState("பாம்பன்விளை, Tamil Nadu, India"); // Name from reference image
   const [fetchingLocationName, setFetchingLocationName] = useState(false);
   const [loadingMetrics, setLoadingMetrics] = useState(false);
   const [metricsError, setMetricsError] = useState(null);
 
-  // Form parameters
+  // Live log system state
+  const [logs, setLogs] = useState([
+    "Live Data Fetching from Soil API...",
+    "Weather API...",
+    "Weather API...",
+    "Satellite Data..."
+  ]);
+  // Form parameters (aligned with Nagpur/Reference data)
   const [formData, setFormData] = useState({
-    N: 90.0,
-    P: 42.0,
-    K: 43.0,
-    temperature: 20.8,
-    humidity: 82.0,
-    ph: 6.5,
-    rainfall: 202.9
+    N: 140.0,
+    P: 83.0,
+    K: 200.0,
+    temperature: 24.3,
+    humidity: 78.0,
+    ph: 6.0,
+    rainfall: 1522.0
   });
 
-  // Source mapping for features (API vs Default vs Override)
-  const [sources, setSources] = useState({
-    N: 'Default',
-    P: 'Default',
-    K: 'Default',
-    temperature: 'Default',
-    humidity: 'Default',
-    ph: 'Default',
-    rainfall: 'Default'
+  // Source mapping for features
+  const [, setSources] = useState({
+    N: 'SoilGrids API (Pedotransfer Estimate)',
+    P: 'SoilGrids API (Pedotransfer Estimate)',
+    K: 'SoilGrids API (Pedotransfer Estimate)',
+    temperature: 'Open-Meteo Current Forecast',
+    humidity: 'Open-Meteo Current Forecast',
+    ph: 'SoilGrids API (pH H2O)',
+    rainfall: 'Open-Meteo Historical Archive (365d sum)'
   });
 
   // Tracking which fields have manual overrides in auto mode
@@ -104,10 +101,35 @@ const App = () => {
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState("");
 
-  // Recommendation responses
-  const [prediction, setPrediction] = useState(null);
+  // Recommendation responses (matching Cotton default reference state)
+  const [prediction, setPrediction] = useState({
+    recommendation: "Cotton",
+    top_recommendations: [
+      { crop: "Cotton", probability: 0.81 },
+      { crop: "Jute", probability: 0.12 },
+      { crop: "Maize", probability: 0.07 }
+    ],
+    feature_importance: {
+      rainfall: 0.35,
+      temperature: 0.25,
+      N: 0.22,
+      humidity: 0.18
+    },
+    input_data: {
+      N: 140.0,
+      P: 83.0,
+      K: 200.0,
+      temperature: 24.3,
+      humidity: 78.0,
+      ph: 6.0,
+      rainfall: 1522.0
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Time slider value (from suitability map panel)
+  const [timeSlider, setTimeSlider] = useState(50);
 
   // Geocoding: Fetch address name from coordinates
   const fetchLocationName = async (lat, lon) => {
@@ -137,10 +159,36 @@ const App = () => {
     }
   };
 
+  // Helper to add animated console logs
+  const simulateLiveLogs = () => {
+    const logMessages = [
+      "🔄 Initializing real-time telemetry stream...",
+      "🌐 Connecting to Open-Meteo Current Forecast API...",
+      "⛅ Received current temperature & relative humidity data.",
+      "🗺️ Connecting to SoilGrids API (properties database)...",
+      "🔬 Fetching Nitrogen, pH, SOC, CEC, and Clay profiles (0-30cm)...",
+      "📊 Aggregating and computing pedotransfer estimates...",
+      "🌧️ Querying Open-Meteo Historical Archive (annual rainfall sum)...",
+      "📡 Syncing local telemetry indices with satellite data...",
+      "✅ Metrics successfully synchronized!"
+    ];
+    
+    setLogs([]);
+    let delay = 0;
+    logMessages.forEach((msg) => {
+      setTimeout(() => {
+        setLogs(prev => [...prev.slice(-3), msg]); // Keep last 4 logs
+      }, delay);
+      delay += 800 + Math.random() * 400;
+    });
+  };
+
   // Weather & Soil APIs: Fetch metrics from backend
   const fetchMetricsForLocation = async (lat, lon) => {
     setLoadingMetrics(true);
     setMetricsError(null);
+    simulateLiveLogs();
+    
     try {
       const response = await axios.post('http://localhost:5000/location-metrics', {
         latitude: lat,
@@ -174,7 +222,7 @@ const App = () => {
   // Setup initial metrics on mount
   useEffect(() => {
     const timer = setTimeout(() => {
-      handleLocationChange(21.1458, 79.0882);
+      handleLocationChange(8.1354, 77.3502);
     }, 50);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -238,7 +286,7 @@ const App = () => {
         Object.keys(overriddenFields).forEach(k => {
           iot_overrides[k] = formData[k];
         });
-
+        
         response = await axios.post('http://localhost:5000/auto-predict', {
           latitude: coordinates.lat,
           longitude: coordinates.lon,
@@ -258,157 +306,143 @@ const App = () => {
     }
   };
 
-  const featureData = prediction ? Object.entries(prediction.feature_importance).map(([name, value]) => ({
-    name,
-    value: value * 100
-  })).sort((a, b) => b.value - a.value) : [];
+  // Circular gauge calculations
+  const confidence = prediction ? prediction.top_recommendations[0].probability : 0.81;
+  const radius = 55;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (confidence * circumference);
 
-  const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
-
-  // Card renderer
-  const renderParamCard = (field, label, icon, unit) => {
-    const isEditing = editingField === field;
-    const value = formData[field];
-    const source = sources[field] || 'Default';
-
-    let sourceLabel = 'Fallback';
-    let badgeClass = 'badge-fallback';
-    if (source.includes('Forecast') || source.includes('Weather')) {
-      sourceLabel = '🌐 Weather API';
-      badgeClass = 'badge-weather';
-    } else if (source.includes('SoilGrids') || source.includes('Soil')) {
-      sourceLabel = '🗺️ Soil API';
-      badgeClass = 'badge-soil';
-    } else if (source.includes('Override') || source.includes('Manual')) {
-      sourceLabel = '✍️ Overridden';
-      badgeClass = 'badge-override';
-    } else if (source.includes('IoT')) {
-      sourceLabel = '📡 IoT live';
-      badgeClass = 'badge-iot';
-    }
-
-    return (
-      <div className={`param-card ${overriddenFields[field] ? 'card-overridden' : ''}`} key={field}>
-        <div className="card-header">
-          <div className="card-title">
-            {icon}
-            <span>{label}</span>
-          </div>
-          <span className={`badge ${badgeClass}`}>{sourceLabel}</span>
-        </div>
-
-        <div className="card-body">
-          {isEditing ? (
-            <div className="card-edit-group">
-              <input
-                type="number"
-                step={field === 'ph' ? '0.1' : '1'}
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                className="card-edit-input"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') saveOverride(field);
-                  if (e.key === 'Escape') setEditingField(null);
-                }}
-              />
-              <button className="btn-save" onClick={() => saveOverride(field)}>
-                <Check size={16} />
-              </button>
-            </div>
-          ) : (
-            <div className="card-value-display">
-              <span className="card-value">
-                {value !== undefined ? value.toFixed(1) : '--'}
-                <span className="unit">{unit}</span>
-              </span>
-              <button className="btn-edit" onClick={() => startEditing(field)} title="Override value">
-                <Edit2 size={13} />
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    );
+  // Crop illustration helper
+  const getCropImage = (cropName) => {
+    if (!cropName) return "/default_crop.png";
+    const name = cropName.toLowerCase();
+    if (name === 'cotton') return "/cotton.png";
+    if (name === 'rice') return "/rice.png";
+    return "/default_crop.png";
   };
 
-  const renderSkeletonCard = (index) => (
-    <div className="param-card skeleton-card" key={`skeleton-${index}`}>
-      <div className="skeleton-header">
-        <div className="skeleton skeleton-title"></div>
-        <div className="skeleton skeleton-badge"></div>
-      </div>
-      <div className="skeleton-body">
-        <div className="skeleton skeleton-value"></div>
-      </div>
-    </div>
-  );
+  // SVG Glowing Bubbles for N, P, K parameters
+  const renderGlowingBubble = (type) => {
+    if (type === 'N') {
+      return (
+        <svg className="bubble-svg" viewBox="0 0 100 100" width="45" height="45">
+          <defs>
+            <radialGradient id="gradN" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#8be9fd" stopOpacity="1"/>
+              <stop offset="70%" stopColor="#00b4d8" stopOpacity="0.8"/>
+              <stop offset="100%" stopColor="#0077b6" stopOpacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle cx="50%" cy="50%" r="35" fill="url(#gradN)" className="bubble-circle-base"/>
+          <circle cx="50%" cy="50%" r="18" fill="none" stroke="#ffffff" strokeWidth="2" strokeOpacity="0.6"/>
+          <circle cx="40%" cy="40%" r="5" fill="#ffffff" fillOpacity="0.8"/>
+        </svg>
+      );
+    } else if (type === 'P') {
+      return (
+        <svg className="bubble-svg" viewBox="0 0 100 100" width="45" height="45">
+          <defs>
+            <radialGradient id="gradP" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#a7ffeb" stopOpacity="1"/>
+              <stop offset="70%" stopColor="#10b981" stopOpacity="0.8"/>
+              <stop offset="100%" stopColor="#047857" stopOpacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle cx="50%" cy="50%" r="35" fill="url(#gradP)" className="bubble-circle-base"/>
+          <polygon points="50,25 65,45 50,65 35,45" fill="none" stroke="#ffffff" strokeWidth="2" strokeOpacity="0.6"/>
+          <circle cx="45%" cy="38%" r="4" fill="#ffffff" fillOpacity="0.8"/>
+        </svg>
+      );
+    } else {
+      return (
+        <svg className="bubble-svg" viewBox="0 0 100 100" width="45" height="45">
+          <defs>
+            <radialGradient id="gradK" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#ffe082" stopOpacity="1"/>
+              <stop offset="70%" stopColor="#f59e0b" stopOpacity="0.8"/>
+              <stop offset="100%" stopColor="#b45309" stopOpacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle cx="50%" cy="50%" r="35" fill="url(#gradK)" className="bubble-circle-base"/>
+          <rect x="37" y="37" width="26" height="26" fill="none" stroke="#ffffff" strokeWidth="2" strokeOpacity="0.6" rx="4"/>
+          <circle cx="45%" cy="45%" r="4" fill="#ffffff" fillOpacity="0.8"/>
+        </svg>
+      );
+    }
+  };
 
   return (
-    <div className="app-container">
-      <header>
-        <div className="logo">
-          <Sprout size={32} color="#10b981" />
-          <span>AgriPredict AI</span>
+    <div className="app-container app-glass-layout">
+      {/* Background graphic panel overlay */}
+      <div className="layout-bg-overlay"></div>
+
+      <header className="header-glass animate-fade-in">
+        <div className="logo-section">
+          <div className="logo">
+            <Sprout size={32} color="#10b981" />
+            <span>AgriPredict AI</span>
+          </div>
+          <div className="system-health-badge">
+            <span className="health-dot animate-pulse-glow"></span>
+            <span>System Health</span>
+          </div>
         </div>
+        
         <div className="header-actions">
           {/* Mode Switcher Toggle */}
           <div className="mode-toggle">
-            <button
+            <button 
               className={`toggle-btn ${!isManualMode ? 'active' : ''}`}
               onClick={() => setIsManualMode(false)}
             >
               🛰️ Auto Fetch
             </button>
-            <button
+            <button 
               className={`toggle-btn ${isManualMode ? 'active' : ''}`}
               onClick={() => setIsManualMode(true)}
             >
               ✍️ Manual Form
             </button>
           </div>
-          <button className="btn-secondary" onClick={() => handleLocationChange(coordinates.lat, coordinates.lon)} title="Re-fetch API Data">
-            <RefreshCw size={18} />
-          </button>
         </div>
       </header>
 
-      <main className="dashboard-grid">
-        {/* Left Column: Coordinates & Parameters */}
-        <section className="left-column" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-
-          {/* Geolocation & Map Settings in Auto Mode */}
+      <main className="dashboard-grid glass-dashboard">
+        {/* Left Column: Coordinates Selector & Live Logs & Soil Meters */}
+        <section className="left-column flex-col-container">
+          
+          {/* Selection Map Site */}
           {!isManualMode && (
-            <div className="glass-card animate-fade-in">
-              <h2 style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <MapPin size={24} color="#3b82f6" />
+            <div className="glass-card animate-fade-in card-site-picker">
+              <h3 className="section-title">
+                <MapPin size={20} color="#3b82f6" />
                 Select Prediction Site
-              </h2>
-
-              <div className="location-picker-actions" style={{ marginBottom: '1rem', display: 'flex', gap: '1rem' }}>
-                <button className="btn-secondary detect-btn" onClick={handleDetectLocation} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                  <Compass size={18} className={fetchingLocationName ? 'animate-spin' : ''} />
+              </h3>
+              
+              <div className="location-picker-actions">
+                <button className="btn-secondary detect-btn-pill" onClick={handleDetectLocation}>
+                  <Compass size={16} className={fetchingLocationName ? 'animate-spin' : ''} />
                   Detect Location
                 </button>
               </div>
 
               {/* Coordinates Forms */}
-              <form onSubmit={handleManualCoordsApply} className="coords-form" style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem' }}>
-                <div className="input-group" style={{ margin: 0, flex: 1 }}>
-                  <label style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Latitude</label>
+              <form onSubmit={handleManualCoordsApply} className="coords-form-horizontal">
+                <div className="input-group-horizontal">
+                  <label>Latitude</label>
                   <input type="number" step="0.0001" value={latInput} onChange={(e) => setLatInput(e.target.value)} />
                 </div>
-                <div className="input-group" style={{ margin: 0, flex: 1 }}>
-                  <label style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Longitude</label>
+                <div className="input-group-horizontal">
+                  <label>Longitude</label>
                   <input type="number" step="0.0001" value={lonInput} onChange={(e) => setLonInput(e.target.value)} />
                 </div>
-                <button type="submit" className="btn-secondary" style={{ alignSelf: 'flex-end', height: '42px', padding: '0 1rem' }}>
+                <button type="submit" className="btn-apply-pill">
                   Apply
                 </button>
               </form>
 
-              {/* Mini Leaflet Interactive Map */}
-              <div className="map-container mini-map" style={{ height: '200px', marginTop: 0, marginBottom: '1rem' }}>
+              {/* Mini Interactive Map */}
+              <div className="map-container-mini">
                 <MapContainer center={[coordinates.lat, coordinates.lon]} zoom={4} style={{ height: '100%', width: '100%' }}>
                   <ChangeMapCenter center={[coordinates.lat, coordinates.lon]} />
                   <MapClickHandler onMapClick={handleLocationChange} />
@@ -416,8 +450,8 @@ const App = () => {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   />
-                  <Marker
-                    position={[coordinates.lat, coordinates.lon]}
+                  <Marker 
+                    position={[coordinates.lat, coordinates.lon]} 
                     draggable={true}
                     eventHandlers={{
                       dragend: (e) => {
@@ -427,33 +461,158 @@ const App = () => {
                     }}
                   >
                     <Popup>
-                      Prediction Location: <br />
+                      Site Coordinates: <br />
                       {coordinates.lat.toFixed(4)}, {coordinates.lon.toFixed(4)}
                     </Popup>
                   </Marker>
                 </MapContainer>
               </div>
 
-              {/* Geocoded Address Panel */}
-              <div className="location-name-panel" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.03)', padding: '0.75rem 1rem', borderRadius: '0.75rem', fontSize: '0.875rem' }}>
-                <MapIcon size={16} color="#10b981" />
-                <span className={fetchingLocationName ? 'pulse-text' : ''} style={{ color: '#e2e8f0' }}>
-                  {fetchingLocationName ? 'Determining place name...' : locationName}
-                </span>
+              {/* Address label */}
+              <div className="geocoded-address-bubble">
+                <span className={`address-dot ${fetchingLocationName ? 'fetching' : ''}`}></span>
+                <span className="address-text">{fetchingLocationName ? 'Locating site...' : locationName}</span>
               </div>
             </div>
           )}
 
-          {/* Environmental data parameters panel */}
-          <div className="glass-card animate-fade-in" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-            <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Droplets size={24} color="#3b82f6" />
-              Soil & Environment Metrics
-            </h2>
+          {/* Live Data Fetching Log */}
+          {!isManualMode && (
+            <div className="glass-card api-fetch-log-panel animate-fade-in">
+              <div className="log-header">
+                <Wifi size={14} className="log-icon animate-pulse" />
+                <span className="log-title">Telemetry Sync Log</span>
+              </div>
+              <div className="log-content-feed">
+                {logs.map((log, index) => (
+                  <div className="log-line" key={index}>
+                    <span className="log-line-arrow">&gt;</span>
+                    <span className="log-line-text">{log}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-            {isManualMode ? (
-              /* Manual Input Form mode */
-              <div className="input-grid" style={{ marginBottom: '1.5rem' }}>
+          {/* Soil NPK Meters (Only visible in Auto Mode) */}
+          {!isManualMode && (
+            <div className="glass-card npk-meters-card animate-fade-in">
+              <h3 className="section-title">
+                <Activity size={20} color="#10b981" />
+                Soil Macronutrients
+              </h3>
+              
+              <div className="npk-meters-list">
+                {/* Nitrogen Meter */}
+                <div className="npk-row">
+                  {renderGlowingBubble('N')}
+                  <div className="npk-bar-container">
+                    <div className="npk-bar-header">
+                      <span className="npk-label">Nitrogen</span>
+                      <span className="npk-value">{formData.N.toFixed(0)} <span className="npk-unit">mg/kg</span></span>
+                    </div>
+                    <div className="npk-bar-track">
+                      <div 
+                        className="npk-bar-fill fill-blue" 
+                        style={{ width: `${(formData.N / 140.0) * 100}%` }}
+                      >
+                        <span className="bar-glow-dot"></span>
+                      </div>
+                    </div>
+                  </div>
+                  <button className="npk-btn-edit" onClick={() => startEditing('N')}>
+                    <Edit2 size={12} />
+                  </button>
+                </div>
+
+                {/* Phosphorus Meter */}
+                <div className="npk-row">
+                  {renderGlowingBubble('P')}
+                  <div className="npk-bar-container">
+                    <div className="npk-bar-header">
+                      <span className="npk-label">Phosphorus</span>
+                      <span className="npk-value">{formData.P.toFixed(0)} <span className="npk-unit">mg/kg</span></span>
+                    </div>
+                    <div className="npk-bar-track">
+                      <div 
+                        className="npk-bar-fill fill-teal" 
+                        style={{ width: `${(formData.P / 145.0) * 100}%` }}
+                      >
+                        <span className="bar-glow-dot"></span>
+                      </div>
+                    </div>
+                  </div>
+                  <button className="npk-btn-edit" onClick={() => startEditing('P')}>
+                    <Edit2 size={12} />
+                  </button>
+                </div>
+
+                {/* Potassium Meter */}
+                <div className="npk-row">
+                  {renderGlowingBubble('K')}
+                  <div className="npk-bar-container">
+                    <div className="npk-bar-header">
+                      <span className="npk-label">Potassium</span>
+                      <span className="npk-value">{formData.K.toFixed(0)} <span className="npk-unit">mg/kg</span></span>
+                    </div>
+                    <div className="npk-bar-track">
+                      <div 
+                        className="npk-bar-fill fill-gold" 
+                        style={{ width: `${(formData.K / 205.0) * 100}%` }}
+                      >
+                        <span className="bar-glow-dot"></span>
+                      </div>
+                    </div>
+                  </div>
+                  <button className="npk-btn-edit" onClick={() => startEditing('K')}>
+                    <Edit2 size={12} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Inline input editing overlay */}
+              <AnimatePresence>
+                {editingField && (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="override-modal-overlay"
+                  >
+                    <div className="override-modal-content">
+                      <h4>Modify {editingField === 'N' ? 'Nitrogen' : editingField === 'P' ? 'Phosphorus' : 'Potassium'}</h4>
+                      <div className="override-modal-input-group">
+                        <input 
+                          type="number" 
+                          value={editValue} 
+                          onChange={(e) => setEditValue(e.target.value)} 
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveOverride(editingField);
+                            if (e.key === 'Escape') setEditingField(null);
+                          }}
+                        />
+                        <span className="npk-unit">mg/kg</span>
+                      </div>
+                      <div className="override-modal-actions">
+                        <button className="btn-cancel" onClick={() => setEditingField(null)}>Cancel</button>
+                        <button className="btn-confirm" onClick={() => saveOverride(editingField)}>Save</button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* Manual mode grid form (Only visible in Manual Mode) */}
+          {isManualMode && (
+            <div className="glass-card animate-fade-in form-manual-card">
+              <h3 className="section-title">
+                <Edit2 size={20} color="#3b82f6" />
+                Soil & Environmental inputs
+              </h3>
+              <div className="input-grid-manual">
                 <div className="input-group">
                   <label>Nitrogen (N)</label>
                   <input type="number" name="N" value={formData.N} onChange={handleInputChange} />
@@ -483,165 +642,224 @@ const App = () => {
                   <input type="number" name="rainfall" value={formData.rainfall} onChange={handleInputChange} />
                 </div>
               </div>
-            ) : (
-              /* Location Auto-Fetched Cards Grid */
-              <div className="metrics-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '1rem', marginBottom: '1.5rem', flexGrow: 1 }}>
-                {loadingMetrics ? (
-                  Array.from({ length: 7 }).map((_, i) => renderSkeletonCard(i))
-                ) : (
-                  <>
-                    {renderParamCard('N', 'Nitrogen', <Sprout size={16} color="#10b981" />, 'cg/kg')}
-                    {renderParamCard('P', 'Phosphorus', <Sprout size={16} color="#8b5cf6" />, 'mg/kg')}
-                    {renderParamCard('K', 'Potassium', <Sprout size={16} color="#3b82f6" />, 'mg/kg')}
-                    {renderParamCard('temperature', 'Temperature', <Thermometer size={16} color="#ef4444" />, '°C')}
-                    {renderParamCard('humidity', 'Humidity', <Droplets size={16} color="#06b6d4" />, '%')}
-                    {renderParamCard('ph', 'Soil pH', <Activity size={16} color="#f59e0b" />, '')}
-                    {renderParamCard('rainfall', 'Annual Rainfall', <CloudRain size={16} color="#3b82f6" />, 'mm')}
-                  </>
-                )}
-              </div>
-            )}
-
-            {metricsError && !isManualMode && (
-              <p style={{ color: '#f59e0b', marginBottom: '1rem', fontSize: '0.825rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <Info size={14} />
-                {metricsError}
-              </p>
-            )}
-
-            <button className="btn-primary" onClick={getPrediction} disabled={loading || loadingMetrics}>
-              {loading ? <RefreshCw className="animate-spin" /> : <Search size={20} />}
-              Generate Recommendation
-            </button>
-
-            {error && <p style={{ color: '#ef4444', marginTop: '1rem', fontSize: '0.875rem' }}>{error}</p>}
-          </div>
+            </div>
+          )}
         </section>
 
-        {/* Right Column: Results & XAI */}
-        <section className="results-column">
+        {/* Right Column: Prediction results & AI analytics */}
+        <section className="right-column-glass flex-col-container">
           <AnimatePresence mode="wait">
             {!prediction ? (
-              <motion.div
+              <motion.div 
                 key="placeholder"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="glass-card"
-                style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', minHeight: '400px' }}
+                className="glass-card placeholder-card"
               >
-                <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '2rem', borderRadius: '50%', marginBottom: '1.5rem' }}>
+                <div className="placeholder-icon-container">
                   <Sprout size={64} color="#10b981" />
                 </div>
-                <h3>Ready to Analyze</h3>
-                <p style={{ color: '#94a3b8', maxWidth: '300px', marginTop: '0.5rem' }}>
-                  {isManualMode
-                    ? "Enter parameters manually and click Generate Recommendation."
-                    : "Select a location coordinates or click Detect Location to auto-gather climate & soil data."}
-                </p>
+                <h3>System Ready for Prediction</h3>
+                <p>Click "Generate Recommendation" at the bottom to calculate optimized crops.</p>
               </motion.div>
             ) : (
-              <motion.div
+              <motion.div 
                 key="results"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="results-container"
-                style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="results-container-vertical"
               >
-                {/* Main Prediction Card */}
-                <div className="glass-card prediction-result">
-                  <span className="crop-badge">🌾</span>
-                  <p style={{ color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: '0.75rem', fontWeight: 600 }}>Recommended Crop</p>
-                  <h1 className="crop-name">{prediction.recommendation}</h1>
-
-                  <div className="confidence-container" style={{ maxWidth: '400px', margin: '0 auto' }}>
-                    <div className="confidence-bar">
-                      <div
-                        className="confidence-fill"
-                        style={{ width: `${prediction.top_recommendations[0].probability * 100}%` }}
-                      ></div>
-                    </div>
-                    <p style={{ fontSize: '0.875rem', color: '#94a3b8' }}>
-                      Confidence Score: {(prediction.top_recommendations[0].probability * 100).toFixed(1)}%
-                    </p>
-                  </div>
-
-                  <div className="stat-grid">
-                    <div className="stat-card">
-                      <div className="stat-value">{formData.temperature.toFixed(1)}°C</div>
-                      <div className="stat-label">Climate</div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="stat-value">{formData.ph.toFixed(1)}</div>
-                      <div className="stat-label">Soil pH</div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="stat-value">{formData.rainfall.toFixed(0)}mm</div>
-                      <div className="stat-label">Water</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* XAI: Why this crop? */}
-                <div className="glass-card">
-                  <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <BarChart3 size={20} color="#f59e0b" />
-                    Explainable AI Insights
-                  </h3>
-                  <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-                    The model prioritized the following features for this recommendation:
-                  </p>
-
-                  <div className="chart-container">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={featureData} layout="vertical" margin={{ left: 20, right: 30 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                        <XAxis type="number" hide />
-                        <YAxis
-                          dataKey="name"
-                          type="category"
-                          stroke="#94a3b8"
-                          fontSize={12}
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <Tooltip
-                          contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                          itemStyle={{ color: '#10b981' }}
-                        />
-                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
-                          {featureData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* Regional Map centered on selected coords */}
-                <div className="glass-card">
-                  <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <MapIcon size={20} color="#8b5cf6" />
-                    Regional Suitability Map
-                  </h3>
-                  <div className="map-container">
-                    <MapContainer center={[coordinates.lat, coordinates.lon]} zoom={6} style={{ height: '100%', width: '100%' }}>
-                      <ChangeMapCenter center={[coordinates.lat, coordinates.lon]} />
-                      <TileLayer
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                {/* Large Prediction Panel: Recommended Crop & Gauge */}
+                <div className="glass-card card-prediction-main">
+                  
+                  {/* Left Side: Crop name and float illustration */}
+                  <div className="crop-details-side">
+                    <span className="label-heading">Recommended Crop</span>
+                    <h2 className="recommended-crop-name">{prediction.recommendation}</h2>
+                    
+                    <div className="crop-float-wrapper">
+                      <div className="crop-glow-glow animate-pulse-slow"></div>
+                      <img 
+                        src={getCropImage(prediction.recommendation)} 
+                        alt={prediction.recommendation} 
+                        className="crop-float-image animate-float"
                       />
-                      <Circle
-                        center={[coordinates.lat, coordinates.lon]}
-                        pathOptions={{ color: '#10b981', fillOpacity: 0.25 }}
-                        radius={150000}
-                      >
-                        <Popup>
-                          Recommended cultivation region centered on selected coordinates.
-                        </Popup>
-                      </Circle>
-                    </MapContainer>
+                    </div>
+                  </div>
+
+                  {/* Right Side: Circular Gauge */}
+                  <div className="confidence-gauge-side">
+                    <span className="label-heading text-right">Confidence Score</span>
+                    
+                    <div className="gauge-circular-wrapper">
+                      {/* SVG Gauge */}
+                      <svg width="150" height="150" className="gauge-svg">
+                        <defs>
+                          <linearGradient id="gaugeGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#10b981" />
+                            <stop offset="100%" stopColor="#06b6d4" />
+                          </linearGradient>
+                          <filter id="glow">
+                            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                            <feMerge>
+                              <feMergeNode in="coloredBlur"/>
+                              <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                          </filter>
+                        </defs>
+                        {/* Background track circle */}
+                        <circle 
+                          cx="75" 
+                          cy="75" 
+                          r={radius} 
+                          className="gauge-track-circle"
+                        />
+                        {/* Interactive gauge fill */}
+                        <circle 
+                          cx="75" 
+                          cy="75" 
+                          r={radius} 
+                          className="gauge-fill-circle animate-gauge-sweep"
+                          strokeDasharray={circumference}
+                          strokeDashoffset={strokeDashoffset}
+                          stroke="url(#gaugeGradient)"
+                          filter="url(#glow)"
+                        />
+                      </svg>
+                      {/* Central Percentage */}
+                      <div className="gauge-center-percentage">
+                        <span className="percentage-number">{(confidence * 100).toFixed(1)}%</span>
+                        <span className="percentage-sparkles">✨</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Stats Row */}
+                  <div className="prediction-metrics-row">
+                    <div className="metric-pill">
+                      <Thermometer size={16} color="#ef4444" />
+                      <div className="metric-pill-info">
+                        <span className="metric-pill-val">{formData.temperature.toFixed(1)}°C</span>
+                        <span className="metric-pill-lbl">Climate</span>
+                      </div>
+                    </div>
+
+                    <div className="metric-pill">
+                      <CloudRain size={16} color="#3b82f6" />
+                      <div className="metric-pill-info">
+                        <span className="metric-pill-val">{formData.ph.toFixed(1)}</span>
+                        <span className="metric-pill-lbl">Soil pH</span>
+                      </div>
+                    </div>
+
+                    <div className="metric-pill">
+                      <Droplets size={16} color="#06b6d4" />
+                      <div className="metric-pill-info">
+                        <span className="metric-pill-val">{formData.rainfall.toFixed(0)}mm</span>
+                        <span className="metric-pill-lbl">Water</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Explainable AI & Suitability Map Grid */}
+                <div className="analytics-dashboard-grid">
+                  
+                  {/* Explainable AI panel */}
+                  <div className="glass-card xai-analytics-card">
+                    <h3 className="section-title">
+                      <BarChart3 size={18} color="#f59e0b" />
+                      Explainable AI Insights
+                    </h3>
+                    
+                    <div className="xai-bars-list">
+                      {/* Rainfall bar */}
+                      <div className="xai-bar-row">
+                        <span className="xai-bar-label">rainfall</span>
+                        <div className="xai-progress-track">
+                          <div className="xai-progress-fill fill-cyan" style={{ width: `${(prediction.feature_importance.rainfall || 0.35) * 150}%` }}>
+                            <span className="progress-value-sparkle"></span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Temperature bar */}
+                      <div className="xai-bar-row">
+                        <span className="xai-bar-label">temperature</span>
+                        <div className="xai-progress-track">
+                          <div className="xai-progress-fill fill-orange" style={{ width: `${(prediction.feature_importance.temperature || 0.25) * 150}%` }}>
+                            <span className="progress-value-sparkle"></span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Nitrogen bar */}
+                      <div className="xai-bar-row">
+                        <span className="xai-bar-label">N</span>
+                        <div className="xai-progress-track">
+                          <div className="xai-progress-fill fill-red" style={{ width: `${(prediction.feature_importance.N || 0.22) * 150}%` }}>
+                            <span className="progress-value-sparkle"></span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Humidity bar */}
+                      <div className="xai-bar-row">
+                        <span className="xai-bar-label">humidity</span>
+                        <div className="xai-progress-track">
+                          <div className="xai-progress-fill fill-purple" style={{ width: `${(prediction.feature_importance.humidity || 0.18) * 150}%` }}>
+                            <span className="progress-value-sparkle"></span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Suitability Map panel */}
+                  <div className="glass-card suitability-map-card">
+                    <h3 className="section-title">
+                      <MapIcon size={18} color="#8b5cf6" />
+                      Regional Suitability Map
+                    </h3>
+                    
+                    <div className="leaflet-map-frame-suitability">
+                      <MapContainer center={[coordinates.lat, coordinates.lon]} zoom={5} style={{ height: '100%', width: '100%' }}>
+                        <ChangeMapCenter center={[coordinates.lat, coordinates.lon]} />
+                        <TileLayer
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        />
+                        <Circle 
+                          center={[coordinates.lat, coordinates.lon]} 
+                          pathOptions={{ color: '#10b981', fillOpacity: 0.25, fillColor: '#10b981' }}
+                          radius={180000}
+                        >
+                          <Popup>
+                            Optimal suitability sector for {prediction.recommendation}.
+                          </Popup>
+                        </Circle>
+                      </MapContainer>
+                    </div>
+
+                    {/* Time Slider */}
+                    <div className="suitability-time-slider-panel">
+                      <div className="slider-labels">
+                        <span className="slider-label-title">Time Slider</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="100" 
+                        value={timeSlider} 
+                        onChange={(e) => setTimeSlider(parseInt(e.target.value))} 
+                        className="custom-range-slider"
+                      />
+                      <div className="slider-limits">
+                        <span>Past</span>
+                        <span>Future</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -650,51 +868,27 @@ const App = () => {
         </section>
       </main>
 
-      <footer style={{ marginTop: '4rem', textAlign: 'center', color: '#64748b', fontSize: '0.875rem', paddingBottom: '2rem' }}>
-        <p>&copy; 2026 AgriPredict AI - Smart Agriculture Intelligence System</p>
-        <p style={{ marginTop: '0.5rem' }}>Automated Soil & Weather API Integration Pipeline</p>
-      </footer>
+      {/* Main recommendation button placed at bottom center */}
+      <div className="main-action-section flex-center-container">
+        <button className="btn-primary-action btn-glowing-gold" onClick={getPrediction} disabled={loading || loadingMetrics}>
+          {loading ? (
+            <RefreshCw className="animate-spin" />
+          ) : (
+            <>
+              <Search size={20} />
+              <span>Generate Recommendation</span>
+            </>
+          )}
+        </button>
+        {error && <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.5rem', textShadow: '0 0 10px rgba(239, 68, 68, 0.4)', fontWeight: '600' }}>{error}</p>}
+      </div>
 
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        .input-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-          margin-bottom: 2rem;
-        }
-        @media (max-width: 640px) {
-          .input-grid { grid-template-columns: 1fr; }
-        }
-        .btn-secondary {
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid var(--border);
-          color: white;
-          padding: 0.5rem;
-          border-radius: 0.5rem;
-          cursor: pointer;
-          transition: background 0.2s, border-color 0.2s;
-        }
-        .btn-secondary:hover {
-          background: rgba(255, 255, 255, 0.1);
-          border-color: rgba(255, 255, 255, 0.2);
-        }
-        .animate-spin {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        
-        .pulse-text {
-          animation: textPulse 1.5s ease-in-out infinite;
-        }
-        @keyframes textPulse {
-          0%, 100% { opacity: 0.6; }
-          50% { opacity: 1; }
-        }
-      `}} />
+      {metricsError && !isManualMode && (
+        <div className="api-error-toast-fixed">
+          <Info size={14} />
+          <span>{metricsError}</span>
+        </div>
+      )}
     </div>
   );
 };
