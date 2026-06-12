@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 
 // Dynamic API Base URL with local fallback
@@ -163,8 +163,15 @@ const App = () => {
     }
   };
 
-  // Helper to add animated console logs
-  const simulateLiveLogs = () => {
+  // Track log animation timers to prevent lag from stacking timeouts
+  const logTimersRef = useRef([]);
+
+  // Helper to add animated console logs (debounced with cleanup)
+  const simulateLiveLogs = useCallback(() => {
+    // Clear any previous timers to prevent stacking
+    logTimersRef.current.forEach(t => clearTimeout(t));
+    logTimersRef.current = [];
+
     const logMessages = [
       "🔄 Initializing real-time telemetry stream...",
       "🌐 Connecting to Open-Meteo Current Forecast API...",
@@ -180,12 +187,13 @@ const App = () => {
     setLogs([]);
     let delay = 0;
     logMessages.forEach((msg) => {
-      setTimeout(() => {
-        setLogs(prev => [...prev.slice(-3), msg]); // Keep last 4 logs
+      const timer = setTimeout(() => {
+        setLogs(prev => [...prev.slice(-3), msg]);
       }, delay);
-      delay += 800 + Math.random() * 400;
+      logTimersRef.current.push(timer);
+      delay += 600 + Math.random() * 300;
     });
-  };
+  }, []);
 
   // Weather & Soil APIs: Fetch metrics from backend
   const fetchMetricsForLocation = async (lat, lon) => {
@@ -197,7 +205,7 @@ const App = () => {
       const response = await axios.post(`${API_BASE_URL}/location-metrics`, {
         latitude: lat,
         longitude: lon
-      });
+      }, { timeout: 30000 });
       const data = response.data;
       setFormData(data.values);
       setSources(data.sources);
@@ -223,6 +231,11 @@ const App = () => {
     }
   };
 
+  // Warmup ping to wake Render backend (free tier has cold starts ~30s)
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/health`).catch(() => {});
+  }, []);
+
   // Setup initial metrics on mount
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -230,6 +243,13 @@ const App = () => {
     }, 50);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Cleanup log timers on unmount
+  useEffect(() => {
+    return () => {
+      logTimersRef.current.forEach(t => clearTimeout(t));
+    };
   }, []);
 
   // Auto-dismiss API error toast after 6 seconds
@@ -287,14 +307,14 @@ const App = () => {
     setEditingField(null);
   };
 
-  // Predict endpoint trigger
-  const getPrediction = async () => {
+  // Predict endpoint trigger with retry for Render cold starts
+  const getPrediction = async (retryCount = 0) => {
     setLoading(true);
     setError(null);
     try {
       let response;
       if (isManualMode) {
-        response = await axios.post(`${API_BASE_URL}/predict`, formData);
+        response = await axios.post(`${API_BASE_URL}/predict`, formData, { timeout: 30000 });
       } else {
         const iot_overrides = {};
         Object.keys(overriddenFields).forEach(k => {
@@ -305,7 +325,7 @@ const App = () => {
           latitude: coordinates.lat,
           longitude: coordinates.lon,
           iot_data: iot_overrides
-        });
+        }, { timeout: 30000 });
 
         // Sync local form state with final parameters parsed by the model
         setFormData(response.data.input_data);
@@ -313,7 +333,13 @@ const App = () => {
       }
       setPrediction(response.data);
     } catch (err) {
-      setError("Backend server not responding. Ensure Flask is running.");
+      // Retry once on timeout/network error (Render cold start can take ~30s)
+      if (retryCount < 1 && (err.code === 'ECONNABORTED' || !err.response)) {
+        setError("Backend is waking up, retrying...");
+        setTimeout(() => getPrediction(retryCount + 1), 2000);
+        return;
+      }
+      setError("Backend server not responding. Please wait a moment and try again.");
       console.error(err);
     } finally {
       setLoading(false);
