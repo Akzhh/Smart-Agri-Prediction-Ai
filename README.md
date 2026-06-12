@@ -44,13 +44,14 @@ The project is cleanly decoupled into two main layers: a lightweight, robust mac
 ## 📁 Directory Structure
 
 ```text
-Jacon AI/
+AgriPredict_AI/
 │
 ├── backend/
 │   ├── models/
 │   │   ├── crop_model.pkl          # Trained Random Forest classifier
 │   │   └── feature_importance.pkl  # Extracted feature importances
 │   ├── app.py                      # Flask REST API server
+│   ├── data_fetcher.py             # Open-Meteo & SoilGrids APIs fetcher
 │   ├── train_model.py              # ML training & synthetic data generation pipeline
 │   └── package-lock.json
 │
@@ -102,8 +103,20 @@ python train_model.py
 
 ## 🔌 API Documentation
 
+### **POST** `/auto-predict`
+Automatically gathers soil and climate values based on latitude/longitude, runs prediction, and returns recommendations.
+
+#### **Request Body** (`application/json`)
+```json
+{
+  "latitude": 21.1458,
+  "longitude": 79.0882,
+  "iot_data": {}
+}
+```
+
 ### **POST** `/predict`
-Retrieves a crop recommendation and model transparency insights for a given set of soil and environmental parameters.
+Retrieves a crop recommendation and model transparency insights for a given set of manual soil and environmental parameters.
 
 #### **Request Body** (`application/json`)
 ```json
@@ -118,43 +131,13 @@ Retrieves a crop recommendation and model transparency insights for a given set 
 }
 ```
 
-#### **Success Response** (`200 OK`)
-```json
-{
-  "recommendation": "Rice",
-  "top_recommendations": [
-    { "crop": "Rice", "probability": 0.88 },
-    { "crop": "Jute", "probability": 0.08 },
-    { "crop": "Papaya", "probability": 0.04 }
-  ],
-  "feature_importance": {
-    "N": 0.125,
-    "P": 0.085,
-    "K": 0.062,
-    "temperature": 0.184,
-    "humidity": 0.098,
-    "ph": 0.076,
-    "rainfall": 0.370
-  },
-  "input_data": {
-    "N": 90,
-    "P": 42,
-    "K": 43,
-    "temperature": 20.8,
-    "humidity": 82,
-    "ph": 6.5,
-    "rainfall": 202.5
-  }
-}
-```
-
 ---
 
 ## 🚀 How to Run the Project
 
 ### Prerequisites
 Make sure you have the following installed on your system:
-* **Python 3.8+** (with `pip`)
+* **Python 3.10+** (with `pip`)
 * **Node.js 18+** (with `npm`)
 
 ### The 1-Step Launcher (Recommended for Windows)
@@ -172,12 +155,12 @@ powershell -ExecutionPolicy Bypass -File .\start_app.ps1
 Navigate to the `backend` folder, install requirements, and run the server:
 ```bash
 cd backend
-# Optional: Setup virtual environment
+# Setup virtual environment
 python -m venv venv
 .\venv\Scripts\activate
 
 # Install required packages
-pip install flask flask-cors pandas numpy scikit-learn
+pip install -r requirements.txt
 
 # Run Flask
 python app.py
@@ -197,7 +180,9 @@ The client app will be live at **`http://localhost:5173`**.
 
 ## 📈 Key UI Features & Capabilities
 
-1. **Soil & Climate Modeler**: Input custom metrics via form fields to simulate agricultural environments.
-2. **Glassmorphism Theme**: Features high-fidelity design metrics, deep background gradients, and sleek blur effects.
-3. **Probability Distributions**: Displays the top 3 recommended crops with confidence percentages.
-4. **Explainable AI Visualizer**: Features interactive horizontal bar charts illustrating the specific weighting of soil and environment attributes utilized by the random forest decision boundary.
+1. **Auto API Integration**: Automatically fetches real-time temperature, humidity, and annual rainfall (Open-Meteo) plus soil metrics (SoilGrids) based on selected location coordinates.
+2. **Interactive Site Picker**: Features browser geolocation detection, direct coordinates inputs, and an interactive draggable Leaflet map marker.
+3. **Soil & Climate Modeler**: Input custom metrics via form fields to simulate agricultural environments.
+4. **Glassmorphism Theme**: Features high-fidelity design metrics, deep background gradients, and sleek blur effects.
+5. **Probability Distributions**: Displays the top 3 recommended crops with confidence percentages.
+6. **Explainable AI Visualizer**: Features interactive horizontal bar charts illustrating the specific weighting of soil and environment attributes utilized by the random forest decision boundary.
