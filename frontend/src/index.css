@@ -54,9 +54,10 @@ body {
 }
 
 .app-container {
-  max-width: 1350px;
+  max-width: 1600px;
+  width: 95%;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: 1rem 1.5rem;
 }
 
 /* Header Styling */
@@ -117,7 +118,7 @@ body {
 /* Dashboard Grid Layout */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 1fr 2.2fr;
+  grid-template-columns: 1.15fr 2fr;
   gap: 1.5rem;
   align-items: stretch;
 }
@@ -219,6 +220,7 @@ body {
   display: flex;
   gap: 0.75rem;
   align-items: flex-end;
+  flex-wrap: wrap;
 }
 
 .input-group-horizontal {
@@ -270,7 +272,7 @@ body {
 }
 
 .map-container-mini {
-  height: 180px;
+  height: 220px;
   border-radius: 1rem;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -309,10 +311,34 @@ body {
   flex: 1;
 }
 
-/* Telemetry Sync Log Panel */
-.api-fetch-log-panel {
-  padding: 1rem 1.25rem;
-  background: rgba(7, 10, 16, 0.4);
+/* Telemetry Sync Log Panel - Floating bottom-left on desktop */
+.api-fetch-log-panel-floating {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  width: 290px;
+  padding: 0.85rem 1.15rem;
+  background: rgba(7, 10, 16, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+@media (max-width: 1200px) {
+  .api-fetch-log-panel-floating {
+    position: relative;
+    bottom: auto;
+    left: auto;
+    width: 100%;
+    margin-top: 1rem;
+    background: rgba(7, 10, 16, 0.45);
+    z-index: 1;
+    box-shadow: none;
+  }
 }
 
 .log-header {

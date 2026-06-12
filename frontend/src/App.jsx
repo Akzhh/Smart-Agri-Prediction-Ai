@@ -476,23 +476,7 @@ const App = () => {
             </div>
           )}
 
-          {/* Live Data Fetching Log */}
-          {!isManualMode && (
-            <div className="glass-card api-fetch-log-panel animate-fade-in">
-              <div className="log-header">
-                <Wifi size={14} className="log-icon animate-pulse" />
-                <span className="log-title">Telemetry Sync Log</span>
-              </div>
-              <div className="log-content-feed">
-                {logs.map((log, index) => (
-                  <div className="log-line" key={index}>
-                    <span className="log-line-arrow">&gt;</span>
-                    <span className="log-line-text">{log}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+
 
           {/* Soil NPK Meters (Only visible in Auto Mode) */}
           {!isManualMode && (
@@ -887,6 +871,24 @@ const App = () => {
         <div className="api-error-toast-fixed">
           <Info size={14} />
           <span>{metricsError}</span>
+        </div>
+      )}
+
+      {/* Floating Telemetry Sync Log in bottom-left to match reference mockup */}
+      {!isManualMode && (
+        <div className="api-fetch-log-panel-floating animate-fade-in">
+          <div className="log-header">
+            <Wifi size={14} className="log-icon animate-pulse" />
+            <span className="log-title">Telemetry Sync Log</span>
+          </div>
+          <div className="log-content-feed">
+            {logs.map((log, index) => (
+              <div className="log-line" key={index}>
+                <span className="log-line-arrow">&gt;</span>
+                <span className="log-line-text">{log}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
