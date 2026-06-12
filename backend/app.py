@@ -1,8 +1,10 @@
 import os
+# pyrefly: ignore [missing-import]
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pickle
 import pandas as pd
+# pyrefly: ignore [missing-import]
 import numpy as np
 from data_fetcher import get_location_metrics
 
@@ -27,6 +29,9 @@ def load_model():
         print("Model loaded successfully")
     except FileNotFoundError:
         print("Model file not found. Please run train_model.py first.")
+
+# Load model at module level so gunicorn workers pick it up
+load_model()
 
 @app.route('/predict', methods=['POST'])
 def predict():

@@ -55,17 +55,19 @@ def train():
     
     print(f"Model Accuracy: {model.score(X_test, y_test):.2f}")
     
-    # Save the model and feature importance
-    if not os.path.exists('models'):
-        os.makedirs('models')
+    # Save the model and feature importance (absolute path relative to this script)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    models_dir = os.path.join(base_dir, 'models')
+    if not os.path.exists(models_dir):
+        os.makedirs(models_dir)
         
-    with open('models/crop_model.pkl', 'wb') as f:
+    with open(os.path.join(models_dir, 'crop_model.pkl'), 'wb') as f:
         pickle.dump(model, f)
         
-    with open('models/feature_importance.pkl', 'wb') as f:
+    with open(os.path.join(models_dir, 'feature_importance.pkl'), 'wb') as f:
         pickle.dump(feature_importance, f)
         
-    print("Model saved to models/crop_model.pkl")
+    print(f"Model saved to {models_dir}")
 
 if __name__ == "__main__":
     train()
