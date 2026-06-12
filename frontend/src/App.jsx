@@ -228,6 +228,16 @@ const App = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-dismiss API error toast after 6 seconds
+  useEffect(() => {
+    if (metricsError) {
+      const timer = setTimeout(() => {
+        setMetricsError(null);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [metricsError]);
+
   // Custom manual coordinate input apply
   const handleManualCoordsApply = (e) => {
     e.preventDefault();
@@ -372,11 +382,12 @@ const App = () => {
   };
 
   return (
-    <div className="app-container app-glass-layout">
+    <div className="app-glass-layout">
       {/* Background graphic panel overlay */}
       <div className="layout-bg-overlay"></div>
 
-      <header className="header-glass animate-fade-in">
+      <div className="app-container">
+        <header className="header-glass animate-fade-in">
         <div className="logo-section">
           <div className="logo">
             <Sprout size={32} color="#10b981" />
@@ -866,11 +877,17 @@ const App = () => {
         </button>
         {error && <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.5rem', textShadow: '0 0 10px rgba(239, 68, 68, 0.4)', fontWeight: '600' }}>{error}</p>}
       </div>
+      </div>
 
       {metricsError && !isManualMode && (
         <div className="api-error-toast-fixed">
-          <Info size={14} />
-          <span>{metricsError}</span>
+          <div className="api-error-toast-content">
+            <Info size={14} />
+            <span>{metricsError}</span>
+          </div>
+          <button className="api-error-toast-close" onClick={() => setMetricsError(null)}>
+            &times;
+          </button>
         </div>
       )}
 
